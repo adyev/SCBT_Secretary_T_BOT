@@ -2,7 +2,6 @@
 from telebot import types
 from schedule import every
 from multiprocessing import Process
-from functools import reduce
 
 import telebot
 import datetime
@@ -57,6 +56,7 @@ def get_users():
     cursor.close()
     conn.close()
     return rows
+
 
 def set_silenced(user_id, switch):
     conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
