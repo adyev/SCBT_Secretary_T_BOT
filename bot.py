@@ -100,8 +100,7 @@ def r():
                     if (not row['SILENCED']):
                         send_choice(row['TELEGRAM_ID'])
 
-            if (now.hour == 13):
-                send_report()
+
 
 def is_send_reset():
     conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
