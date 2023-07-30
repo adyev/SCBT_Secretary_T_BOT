@@ -12,69 +12,49 @@ import multiprocessing as mp
 import json
 import psycopg2
 from psycopg2.extras import DictCursor
+import SQL_funcs
 
 
 
 bot = telebot.TeleBot(config.SKBT_SECRETARY_TOKEN)
 
 def add_sender(user_id):
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute('INSERT INTO "secretary"."T_SENDERS" ("TELEGRAM_ID") VALUES (%s);',
+    SQL_funcs.SQL_Update('INSERT INTO "secretary"."T_SENDERS" ("TELEGRAM_ID") VALUES (%s);',
                     (user_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
+
 
 def get_not_sended():
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute('SELECT u."NAME" FROM secretary."T_USERS" u where u."TELEGRAM_ID" not in (select "TELEGRAM_ID" from secretary."T_SENDERS" s)')
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    rows = SQL_funcs.SQL_Select('SELECT u."NAME" FROM secretary."T_USERS" u where u."TELEGRAM_ID" not in (select "TELEGRAM_ID" from secretary."T_SENDERS" s)', ())
     return rows
 
 def get_user(user_id):
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute('select * from "secretary"."T_USERS" u where u."TELEGRAM_ID" = %s', (user_id,))
-    row = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    row = SQL_funcs.SQL_Select('select * from "secretary"."T_USERS" u where u."TELEGRAM_ID" = %s', (user_id,))
     return row
 
 def get_users():
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute('select * from "secretary"."T_USERS"')
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    rows = SQL_funcs.SQL_Select('select * from "secretary"."T_USERS"', ())
+    
     return rows
 
 
 def set_silenced(user_id, switch):
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute('UPDATE secretary."T_USERS" SET "SILENCED" = %s WHERE "TELEGRAM_ID" = %s;', (switch, user_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    SQL_funcs.SQL_Update('UPDATE secretary."T_USERS" SET "SILENCED" = %s WHERE "TELEGRAM_ID" = %s;', (switch, user_id))
+
 
 # функция отправки сообщения с выбором места работы
 def send_choice(user_id):
+    user = get_user(user_id)[0]
+    #print(user)
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     ofice_btn = types.KeyboardButton("💼 Офис")
     dist_btn = types.KeyboardButton("🏡 Удаленно")
-    not_disturb_btn = types.KeyboardButton("🚫 Не беспокоить")
+    off_btn = types.KeyboardButton("🚫 Выключить")
+    on_btn = types.KeyboardButton("✅ Включить")
     canсel_btn = types.KeyboardButton("🔚 Отмена")
-    markup.add(ofice_btn, dist_btn, not_disturb_btn, canсel_btn)
+    if (user['SILENCED']):
+        markup.add(ofice_btn, dist_btn, on_btn, canсel_btn)
+    else:
+        markup.add(ofice_btn, dist_btn, off_btn, canсel_btn)
     bot.send_message(user_id, 'Где сегодня работаешь?', reply_markup=markup)
     return 0
 
@@ -103,13 +83,8 @@ def r():
 
 
 def is_send_reset():
-    conn = psycopg2.connect(dbname = config.DB_NAME, user = config.DB_USER, 
-                        password = config.DB_PASSWORD, host = config.DB_HOST)
-    cursor = conn.cursor()
-    cursor.execute('delete from "secretary"."T_SENDERS"')
-    conn.commit()
-    cursor.close()
-    conn.close()
+    SQL_funcs.SQL_Update('delete from "secretary"."T_SENDERS"', ())
+    
 
 def send_report():
     now = datetime.datetime.now() 
@@ -138,7 +113,7 @@ if __name__ == '__main__':
         bot.send_message(1907932520, str(message.from_user.id) + ' ' + str(message.from_user.first_name) + ' ' + str(message.from_user.last_name))
         #print(message)
     
-    @bot.message_handler(commands=['workplace'])
+    @bot.message_handler(commands=['menu'])
     def send_workplace(message):
          send_choice(message.from_user.id)
     
@@ -161,9 +136,13 @@ if __name__ == '__main__':
             bot.send_message(message.from_user.id, 'Сообщение отправлено в чат!', reply_markup=types.ReplyKeyboardRemove())
             bot.send_message(config.SKB_CHAT_ID, f"{user[0]['NAME']}\n{now_date} {message.text} #работа", reply_markup=types.ReplyKeyboardRemove())
 
-        elif (message.text == '🚫 Не беспокоить'):
+        elif (message.text == '🚫 Выключить'):
             set_silenced(message.from_user.id, True)
-            bot.send_message(message.from_user.id, 'Рассылка для вас отключена. Чтобы включить ее заново, введите команду /on_work', reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(message.from_user.id, 'Рассылка для вас отключена.', reply_markup=types.ReplyKeyboardRemove())
+
+        elif (message.text == '✅ Включить'):
+            set_silenced(message.from_user.id, False)
+            bot.send_message(message.from_user.id, 'Рассылка для вас включена.', reply_markup=types.ReplyKeyboardRemove())   
         elif (message.text == '🔚 Отмена'):
             bot.send_message(message.from_user.id, 'Ничего не произошло :)', reply_markup=types.ReplyKeyboardRemove())
 
