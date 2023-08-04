@@ -24,7 +24,7 @@ def add_sender(user_id):
 
 
 def get_not_sended():
-    rows = SQL_funcs.SQL_Select('SELECT u."NAME" FROM secretary."T_USERS" u where u."TELEGRAM_ID" not in (select "TELEGRAM_ID" from secretary."T_SENDERS" s)', ())
+    rows = SQL_funcs.SQL_Select('SELECT * FROM secretary."T_USERS" u where u."TELEGRAM_ID" not in (select "TELEGRAM_ID" from secretary."T_SENDERS" s)', ())
     return rows
 
 def get_user(user_id):
@@ -74,7 +74,7 @@ def r():
     now = datetime.datetime.now() 
     if (now.weekday() < 5):
         if (now.minute == 0):
-            rows = get_users()
+            rows = get_not_sended()
             for row in rows:
                 if (now.hour == 9 + 7 - row['UTC_DIFF']):
                     if (not row['SILENCED']):
