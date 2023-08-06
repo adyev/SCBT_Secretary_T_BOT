@@ -8,10 +8,6 @@ import datetime
 import config
 import schedule
 import time
-import multiprocessing as mp
-import json
-import psycopg2
-from psycopg2.extras import DictCursor
 import SQL_funcs
 
 
@@ -40,6 +36,10 @@ def get_users():
 def set_silenced(user_id, switch):
     SQL_funcs.SQL_Update('UPDATE secretary."T_USERS" SET "SILENCED" = %s WHERE "TELEGRAM_ID" = %s;', (switch, user_id))
 
+def get_bosses():
+    rows = SQL_funcs.SQL_Select('SELECT * FROM secretary."T_USERS" u where u."IS_BOSS" is true;', ())
+    return rows
+
 
 # функция отправки сообщения с выбором места работы
 def send_choice(user_id):
@@ -63,9 +63,6 @@ def start_schedule():
     every().minute.do(r)
     every().day.at("00:00").do(is_send_reset)   
     every().day.at("13:00").do(send_report)   
-   
-
-     
     while (True):
         schedule.run_pending()
         time.sleep(1)
@@ -92,7 +89,8 @@ def send_report():
         not_senders = get_not_sended()
         report_str = ''
         for not_sender in not_senders:
-            report_str = report_str + not_sender['NAME'] + "\n"
+            if (not_sender['TELEGRAM_ID'] != 366612076):
+                report_str = report_str + not_sender['NAME'] + "\n"
         bot.send_message(1907932520, "Пользователи, не сообщившие о месте работы сегодня:\n" + report_str)
         bot.send_message(366612076, "Пользователи, не сообщившие о месте работы сегодня:\n" + report_str)
 
@@ -116,11 +114,6 @@ if __name__ == '__main__':
     @bot.message_handler(commands=['menu'])
     def send_workplace(message):
          send_choice(message.from_user.id)
-    
-    @bot.message_handler(commands=['on_work'])
-    def anable_work(message):
-        set_silenced(message.from_user.id, False)
-        bot.send_message(message.from_user.id, 'Вы снова включены в рассылку!')
     
     @bot.message_handler(commands=['u'])
     def repeater(message):
